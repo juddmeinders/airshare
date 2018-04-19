@@ -1,11 +1,11 @@
 <?php
 /*
 Plugin Name: Airshare - Airplane sharing management
-Plugin URI: http://rfc.meinersovermatter.com
+Plugin URI: http://example.com
 Description: Write something good.
 Version: 0.1
 Author: Judd Meinders
-License: GPLv2+
+License: MIT
 Text Domain: airshare
 */
 
