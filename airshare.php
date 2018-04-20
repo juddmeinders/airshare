@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Airshare - Airplane sharing management
+Plugin Name: Airshare - Airplane Sharing Management
 Plugin URI: http://example.com
 Description: Write something good.
 Version: 0.1
@@ -9,30 +9,75 @@ License: MIT
 Text Domain: airshare
 */
 
+global $airshare_db_version;
+$airshare_db_version = '0.1';
+
 class Airshare{
 
 // Constructor
 function __construct() {
 
-  register_activation_hook( __FILE__, array( $this, 'wpa_install' ) );
-  register_deactivation_hook( __FILE__, array( $this, 'wpa_uninstall' ) );
-  add_action( 'wp_enqueue_scripts', array( $this, 'wpa_styles') );
-  add_action( 'wp_enqueue_scripts', array( $this, 'wpa_include') );
+  register_activation_hook( __FILE__, array( $this, 'airshare_install' ) );
+  register_deactivation_hook( __FILE__, array( $this, 'airshare_uninstall' ) );
+  add_action( 'wp_enqueue_scripts', array( $this, 'airshare_styles') );
+  add_action( 'wp_enqueue_scripts', array( $this, 'airshare_includes') );
 }
 
 /*
  * Actions perform on activation of plugin
  */
-function wpa_install() {
+function airshare_install() {
+  
+  global $wpdb;
+  global $airshare_db_version;
 
+  $aircraft_table = $wpdb->prefix . "airshare_aircraft";
+  $uselog_table = $wpdb->prefix . "airshare_uselog";
 
+  $charset_collate = $wpdb->get_charset_collate();
+
+  $aircraft_table_sql = "CREATE TABLE `$aircraft_table` (
+    `aircraft_id` int(11) NOT NULL AUTO_INCREMENT,
+    `tailnum` varchar(8) NOT NULL,
+    `fk_maintenance_officer` bigint(20) unsigned DEFAULT NULL,
+    `last_oil_change` decimal(8,2) DEFAULT NULL,
+    `last_annual` date DEFAULT NULL,
+    `last_altimeter_check` date DEFAULT NULL,
+    `last_elt_check` date DEFAULT NULL,
+    `available` tinyint(4) NOT NULL DEFAULT '1',
+    `last_elt_battery` date DEFAULT NULL,
+    PRIMARY KEY (`aircraft_id`),
+    UNIQUE KEY `tailnum_UNIQUE` (`tailnum`),
+    UNIQUE KEY `id_UNIQUE` (`aircraft_id`),
+    KEY `ID_idx` (`fk_maintenance_officer`),
+    CONSTRAINT `ID` FOREIGN KEY (`fk_maintenance_officer`) REFERENCES `rfc_wp_users` (`ID`) ON DELETE SET NULL ON UPDATE CASCADE
+    ) $charset_collate;";
+
+  $uselog_table_sql = "CREATE TABLE `rfc_wp_airshare_uselog` (
+    `uselogentry_id` int(11) NOT NULL AUTO_INCREMENT,
+    `date` date NOT NULL,
+    `fk_ID` bigint(20) unsigned NOT NULL,
+    `start` decimal(8,2) unsigned NOT NULL,
+    `stop` decimal(8,2) unsigned NOT NULL,
+    `fuel_billed` decimal(8,2) unsigned NOT NULL DEFAULT '0.00',
+    `fuel_paid` decimal(8,2) unsigned NOT NULL DEFAULT '0.00',
+    `oil_start` decimal(2,1) unsigned DEFAULT NULL,
+    `oil_added` decimal(2,1) unsigned DEFAULT '0.0',
+    `fk_aircraft_id` int(11) unsigned NOT NULL,
+    `maintenance_flight` tinyint(4) NOT NULL DEFAULT '0',
+    PRIMARY KEY (`uselogentry_id`),
+    UNIQUE KEY `uselogentry_id_UNIQUE` (`uselogentry_id`),
+    KEY `ID_idx` (`fk_ID`),
+    KEY `fk_aircraft_id_idx` (`fk_aircraft_id`),
+    CONSTRAINT `fk_ID` FOREIGN KEY (`fk_ID`) REFERENCES `rfc_wp_users` (`ID`) ON DELETE NO ACTION ON UPDATE CASCADE
+    ) $charseet_collate;";
 
 }
 
 /*
  * Actions perform on de-activation of plugin
  */
-function wpa_uninstall() {
+function airshare_uninstall() {
 
 
 
@@ -41,12 +86,15 @@ function wpa_uninstall() {
 /*
  * Styling: loading stylesheets for the plugin.
  */
-function wpa_styles( $page ) {
+function airshare_styles( $page ) {
 
   wp_enqueue_style( 'airshare-style', plugins_url('css/airshare-style.css', __FILE__));
 }
 
-function wpa_include( $page ) {
+/*
+ * Include: load helper functions for the plugin.
+ */
+function airshare_includes( $page ) {
   
   include_once( plugin_dir_path( __FILE__ ) . 'include/airshare-helpers.php'); 
 }
@@ -105,15 +153,15 @@ public static function AS_logentry_shortcode( $atts ) {
   $uid = get_current_user_id();
   $user_info = get_userdata( $uid );
   $uDisplayName = $user_info->display_name;
-    $today = date("Y-m-d");
-    $maxTac = number_format((float)getMaxTac( $tail ), 2, ".", "");
-    $content = "<h3 style=\"text-align: center;\">{$tail} Use Log</h3>";
+  $today = date("Y-m-d");
+  $maxTac = number_format((float)getMaxTac( $tail ), 2, ".", "");
+  $content = "<h3 style=\"text-align: center;\">{$tail} Use Log</h3>";
 
-    if ( $_SERVER["REQUEST_METHOD"] == "POST" ) {
-      
-      $aircraft_id = getAircraft_ID( $tail );
+  if ( $_SERVER["REQUEST_METHOD"] == "POST" ) {
 
-      $logrow = array(
+    $aircraft_id = getAircraft_ID( $tail );
+
+    $logrow = array(
         "fk_ID" => $uid,
         "date" => $_POST["nDate"],
         "start" => (float)$_POST["nStart"],
@@ -125,63 +173,58 @@ public static function AS_logentry_shortcode( $atts ) {
         "fk_aircraft_id" => $aircraft_id,
         "maintenance_flight" => (int)$_POST["nMaint"] );
 
-      $v_error = validate_logrow( $logrow );
-      if ( $error == 0 ) {
-        if ( insertUselog( $logrow ) == 1 ) {
-          $content .= "<div class=\"as_table\">";
-          $content .= printLogHeader();
-          $content .= printLogRows( $tail, 5 );
-          $content .= "</div>";
-        } else {
-          return "ERROR: Database: Unable to insert.";
-        }
+    $v_error = validate_logrow( $logrow );
+    if ( $error == 0 ) {
+      if ( insertUselog( $logrow ) == 1 ) {
+        $content .= "<div class=\"as_table\">";
+        $content .= printLogHeader();
+        $content .= printLogRows( $tail, 5 );
+        $content .= "</div>";
       } else {
-        return $v_error;
+        return "ERROR: Database: Unable to insert.";
       }
     } else {
-
-      $content .= "<form method=\"POST\" action=\"" . htmlspecialchars($_SERVER["PHP_SELF"]) . "\">";
-
-      $content .= "<div class=\"as_table\">";
-      $content .= printLogHeader();
-      $content .= printLogRows( $tail, 5 );
-
-      $content .= "<div class=\"as_trow\">";
-      $content .= "<div class=\"as_tcell\">{$uDisplayName}</div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"date\" name=\"nDate\" value=\"{$today}\" size=\"10\"required></div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nStart\" value=\"{$maxTac}\" min=\"0\" max=\"9999\" step=\"0.1\" size=\"6\"required></div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nStop\" min=\"0\" max=\"9999\" step=\"0.1\" size=\"6\"required></div>";
-      $content .= "<div class=\"as_tcell\">N/A</div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nGalCharged\" value=\"0\" min=\"0\" max=\"99\" size=\"5\" required></div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nGalPaid\" value=\"0\" min=\"0\" max=\"99\" size=\"5\" required></div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nOilStart\" min=\"0\" max=\"8\" step=\"0.5\" size=\"3\"required></div>";
-      $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nOilAdded\" value=\"0\" min=\"0\" max=\"5\" step=\"0.5\" size=\"3\"required></div>";
-      $content .= "</div>";
-
-      $content .= "</div>";
-
-      $content .= "<br>";
-
-//      $content .= "<div id=\"submitrow\">";
-
-      $content .= "<p style=\"float: right;\">";
-      $content .= "<input type=\"submit\" value=\"Submit\">";
-      
-      $content .= "<p style=\"float: right; margin-right: 60px;\">";
-      $content .= "Maintenance Flight: ";
-      $content .= "<label class=\"switch\" style=\"margin-left: 10px;\">";
-      $content .= "<input type=\"checkbox\" name=\"nMaint\" value=\"1\">";
-      $content .= "<span class=\"slider round\"></span>";
-      $content .= "</label>";
-
-  //    $content .= "</div>";
-
-      $content .= "</form>";
-
+      return $v_error;
     }
-    return $content;
+  } else {
+
+    $content .= "<form method=\"POST\" action=\"" . htmlspecialchars($_SERVER["PHP_SELF"]) . "\">";
+    $content .= "<div class=\"as_table\">";
+    $content .= printLogHeader();
+    $content .= printLogRows( $tail, 5 );
+
+    $content .= "<div class=\"as_trow\">";
+    $content .= "<div class=\"as_tcell\">{$uDisplayName}</div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"date\" name=\"nDate\" value=\"{$today}\" size=\"10\"required></div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nStart\" value=\"{$maxTac}\" min=\"0\" max=\"9999\" step=\"0.1\" size=\"6\"required></div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nStop\" min=\"0\" max=\"9999\" step=\"0.1\" size=\"6\"required></div>";
+    $content .= "<div class=\"as_tcell\">N/A</div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nGalCharged\" value=\"0\" min=\"0\" max=\"99\" size=\"5\" required></div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nGalPaid\" value=\"0\" min=\"0\" max=\"99\" size=\"5\" required></div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nOilStart\" min=\"0\" max=\"8\" step=\"0.5\" size=\"3\"required></div>";
+    $content .= "<div class=\"as_tcell\"><input type=\"number\" name=\"nOilAdded\" value=\"0\" min=\"0\" max=\"5\" step=\"0.5\" size=\"3\"required></div>";
+    $content .= "</div>";
+
+    $content .= "</div>";
+
+    $content .= "<br>";
+
+    $content .= "<p style=\"float: right;\">";
+    $content .= "<input type=\"submit\" value=\"Submit\">";
+      
+    $content .= "<p style=\"float: right; margin-right: 60px;\">";
+    $content .= "Maintenance Flight: ";
+    $content .= "<label class=\"switch\" style=\"margin-left: 10px;\">";
+    $content .= "<input type=\"checkbox\" name=\"nMaint\" value=\"1\">";
+    $content .= "<span class=\"slider round\"></span>";
+    $content .= "</label>";
+
+    $content .= "</form>";
   }
-}
+
+  return $content;
+} // AS_logentry_shortcode
+} // Class Airshare
 
 new Airshare();
 add_shortcode( 'AS_logentry', array( 'Airshare', 'AS_logentry_shortcode' ) );

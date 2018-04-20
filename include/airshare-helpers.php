@@ -70,6 +70,44 @@ function getTailnum( $aircraft_id ) {
   return $result;
 }
 
+// Check if a user has maintenance privs for an aircraft
+// returns a boolean
+function canModAC( $user, $acid ) {
+
+  global $wpdb;
+  $p = $wpdb->prefix;
+  $retval = false;
+
+  if (in_array('administrator', $user->roles)) {
+    $retval = true;
+  }else{
+    $maintenance_officer = $wpdb->get_var( $wpdb-> prepare(
+      "SELECT fk_maintenance_officer
+        FROM {$p}airshare_aircraft
+        WHERE aircraft_id = %s", $acid));
+    if ($maintenance_officer == $user->ID) {
+      $retval = true;
+    }
+  }
+
+  return $retval;
+}
+
+// Get the current data for an aircraft by aircraft_id
+// returns an array indexed by column name
+function getACData( $acid ) {
+
+  global $wpdb;
+  $p = $wpdb->prefix;
+
+  $result = $wpdb->get_row( $wpdb->prepare(
+    "SELECT *
+      FROM {$p}airshare_aircraft
+      WHERE aircraft_id = %s", $acid), ARRAY_A );
+
+  return $result;
+}
+
 function getMaintOfficer( $tailnum ) {
 
 	global $wpdb;
@@ -286,6 +324,28 @@ function insertUselog( $logrow ) {
   return $result;
 }
 
+// Check if a user has maintenanve officer privsi
+// returns a boolean
+function isASMO( $user ) {
+
+  global $wpdb;
+  $p = $wpdb->prefix;
+  $retval = false;
+
+  if (in_array('administrator', $user->roles)) {
+    $retval = true;
+  }else{
+    $maintenance_officers = $wpdb->get_col(
+      "SELECT fk_maintenance_officer
+        FROM {$p}airshare_aircraft");
+    if (in_array($user->ID, $maintenance_officers)) {
+      $retval = true;
+    }
+  }
+
+  return $retval;
+}
+
 function getAircraft_ID ( $tailnum ) {
 
   global $wpdb;
@@ -329,6 +389,22 @@ function is_oil( $val ) {
 function is_vdate( $val ) {
   $date = explode( "-", $val, 3 );
   return checkdate( $date[1], $date[2], $date[0] );
+}
+
+function is_tailnum( $val ) {
+  return preg_match('/^[A-Z0-9-]{4,9}$/', $val);
+}
+
+function validate_acdata ( $acdata ) {
+  if ( ! is_tailnum( $acdata['tailnum'] ) ) { return "ERROR: Invalid tailnum"; } 
+  if ( ! is_int( $acdata['fk_maintenance_officer'] ) ) { return "ERROR: Invalid maintenance officer"; } 
+  if ( ! is_vdate( $acdata['last_oil_change'] ) ) { return "ERROR: Invalid Last Oil Change"; } 
+  if ( ! is_vdate( $acdata['last_annual'] ) ) { return "ERROR: Invalid Last Annual"; } 
+  if ( ! is_vdate( $acdata['last_altimeter_check'] ) ) { return "ERROR: Invalid Last Altimeter Check"; } 
+  if ( ! is_vdate( $acdata['last_elt_check'] ) ) { return "ERROR: Invalid Last ELT Check"; } 
+  if ( ! is_int( $acdata['available'] ) ) { return "ERROR: Invalid Aircraft Availability"; } 
+  if ( ! is_vdate( $acdata['last_elt_battery'] ) ) { return "ERROR: Invalid Last ELT Battery"; }
+  return 0;
 }
 
 function validate_logrow( $logrow ) {
