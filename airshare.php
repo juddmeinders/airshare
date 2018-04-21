@@ -21,6 +21,7 @@ function __construct() {
   register_deactivation_hook( __FILE__, array( $this, 'airshare_uninstall' ) );
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_styles') );
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_includes') );
+  add_action( 'plugins_loaded', 'airshare_update_db_check' );
 }
 
 /*
@@ -70,8 +71,24 @@ function airshare_install() {
     KEY `ID_idx` (`fk_ID`),
     KEY `fk_aircraft_id_idx` (`fk_aircraft_id`),
     CONSTRAINT `fk_ID` FOREIGN KEY (`fk_ID`) REFERENCES `rfc_wp_users` (`ID`) ON DELETE NO ACTION ON UPDATE CASCADE
-    ) $charseet_collate;";
+    ) $charset_collate;";
 
+  require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+  dbDelta( $aircraft_table_sql );
+  dbDelta( $uselog_table_sql );
+
+  add_option( 'airshare_db_version', $airshare_db_version );
+}
+
+/*
+ * Update the database schema if required
+ */
+function airshare_update_db_check(){
+
+  global $airshare_db_version;
+  if ( get_site_option( 'airshare_db_version' ) != $airshare_db_version ) {
+    airshare_install();
+  }
 }
 
 /*
@@ -79,8 +96,7 @@ function airshare_install() {
  */
 function airshare_uninstall() {
 
-
-
+  //uninstall airshare-administration template
 }
 
 /*
