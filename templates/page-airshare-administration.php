@@ -79,8 +79,19 @@ switch ($page) {
 
 Tail Number:
 <input type="text" name="tail" value="<?php echo $acdata['tailnum']?>"><br>
+Available:
+<label class="switch" style="margin-left: 10px;">
+  <input type="checkbox" name="isavailable" value="1" <?php if ($acdata['available'] == 1) {echo "checked";}?>>
+    <span class="slider round"></span>
+</label><br>
+<?php
+    if ($acid == "newac") {
+?>
+Starting TAC:
+<input type="number" name="currenttac" min="0" step="0.1" value="<?php echo $acdata['tailnum']?>"><br>
+<?php } ?>
 TAC of last Oil Change:
-<input type="number" name="last_oilchange" value="<?php echo $acdata['last_oil_change']?>"><br>
+<input type="number" name="last_oilchange" min="0" step="0.1" value="<?php echo $acdata['last_oil_change']?>"><br>
 Date of last Annual:
 <input type="date" name="last_annual" value="<?php echo $acdata['last_annual']?>"><br>
 Date of last Altimeter Check:
@@ -110,21 +121,81 @@ Maintenance Officer:
 
   case 2:
     // Guard against unauthorized use
-    if (!in_array('adminiatrator', $roles)) {noAccess();break;}
+    if (!in_array('administrator', $roles)) {noAccess();break;}
     // Validate input
-    // $acdata = array(
-     
+    $aircraftrow = array(
+      "tailnum" => $_POST['tail'],
+      "fk_maintenance_officer" => (int)$_POST['maintenance_officer'],
+      "last_oil_change" => (float)$_POST['last_oilchange'],
+      "last_annual" => $_POST['last_annual'],
+      "last_altimeter_check" => $_POST['last_altimeter'],
+      "last_elt_check" => $_POST['last_eltcheck'],
+      "available" => (int)$_POST['isavailable'],
+      "last_elt_battery" => $_POST['last_eltbattery'] );
+
+    $v_error = validate_acdata( $aircraftrow );
+    if ( $v_error == 0 ) {
+      if ( insertAircraft( $aircraftrow ) == 1 ) {
 ?>
-<center>Add new aircraft to db</center>
+<center><?php echo $_POST['tail'] . " ";?>has been successfully added.</center>
+<?php      
+      }else{
+?>
+<center>Unknown database error occured</center>
 <?php
+      }
+    }else{
+?>
+<center><?php echo $v_error;?></center>
+<?php
+    }
+
+    $initiallogrow = array(
+      "fk_ID" => $user->ID,
+      "date" => date("Y-m-d"),
+      "start" => (float)$_POST['currenttac'],
+      "stop" => (float)$_POST['currenttac'],
+      "fuel_billed" => 0,
+      "fuel_paid" => 0,
+      "oil_start" => 0,
+      "oil_added" => 0,
+      "fk_aircraft_id" => getAircraft_ID($_POST['tail']),
+      "maintenance_flight" => 1);
+
+    insertUseLog($initiallogrow);
     break;
 
   case 3:
     // Guard against unauthorized use
     if (!canModAC($user, $acid)) {noAccess();break;}
+    
+    $aircraftrow = array(
+      "aircraft_id" => getAircraft_ID($_POST['tail']),
+      "tailnum" => $_POST['tail'],
+      "fk_maintenance_officer" => (int)$_POST['maintenance_officer'],
+      "last_oil_change" => (float)$_POST['last_oilchange'],
+      "last_annual" => $_POST['last_annual'],
+      "last_altimeter_check" => $_POST['last_altimeter'],
+      "last_elt_check" => $_POST['last_eltcheck'],
+      "available" => (int)$_POST['isavailable'],
+      "last_elt_battery" => $_POST['last_eltbattery'] );
+
+    $v_error = validate_acdata( $aircraftrow );
+    if ( $v_error == 0 ) {
+      if ( updateAircraft( $aircraftrow, $aircraftrow['aircraft_id'] ) == 1 ) {
 ?>
-<center>Process aircraft modification</center>
+<center><?php echo $_POST['tail'];?> updated successfully.</center>
 <?php
+      }else{
+?>
+<center>An error occured while updating the aircraft</center>
+<?php
+      }
+    }else{
+?>
+<center><?php echo $v_error ?></center>
+<?php
+    }
     break;
 
   default:
@@ -141,6 +212,7 @@ Maintenance Officer:
 
 <?php
 function noAccess() {
-  return "<center>You are not authorized to view this page</center>";
+  echo "<center>You are not authorized to view this page</center>";
+  return -1;
 }
 ?>

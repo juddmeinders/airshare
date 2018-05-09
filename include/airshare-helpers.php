@@ -324,6 +324,30 @@ function insertUselog( $logrow ) {
   return $result;
 }
 
+function insertAircraft( $aircraftrow ) {
+
+  global $wpdb;
+  $p = $wpdb->prefix;
+
+  $result = $wpdb->insert( "{$p}airshare_aircraft", $aircraftrow, array('%s','%d','%f','%s','%s','%s','%d','%s') );
+
+  return $result;
+}
+
+function updateAircraft( $aircraftrow, $acid ) {
+
+  global $wpdb;
+  $p = $wpdb->prefix;
+
+  $result = $wpdb->update( "{$p}airshare_aircraft",
+                            $aircraftrow,
+                            array('aircraft_id' => $acid),
+                            array('%d','%s','%d','%f','%s','%s','%s','%d','%s'),
+                            array('%d') );
+
+  return $result;
+}
+
 // Check if a user has maintenanve officer privsi
 // returns a boolean
 function isASMO( $user ) {

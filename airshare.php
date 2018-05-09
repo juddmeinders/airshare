@@ -21,7 +21,7 @@ function __construct() {
   register_deactivation_hook( __FILE__, array( $this, 'airshare_uninstall' ) );
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_styles') );
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_includes') );
-  add_action( 'plugins_loaded', 'airshare_update_db_check' );
+  add_action( 'plugins_loaded', array( $this, 'airshare_update_db_check') );
 }
 
 /*
@@ -83,7 +83,7 @@ function airshare_install() {
 /*
  * Update the database schema if required
  */
-function airshare_update_db_check(){
+function airshare_update_db_check( $page ){
 
   global $airshare_db_version;
   if ( get_site_option( 'airshare_db_version' ) != $airshare_db_version ) {
@@ -189,8 +189,10 @@ public static function AS_logentry_shortcode( $atts ) {
         "fk_aircraft_id" => $aircraft_id,
         "maintenance_flight" => (int)$_POST["nMaint"] );
 
+    print_r($logrow);
+
     $v_error = validate_logrow( $logrow );
-    if ( $error == 0 ) {
+    if ( $v_error == 0 ) {
       if ( insertUselog( $logrow ) == 1 ) {
         $content .= "<div class=\"as_table\">";
         $content .= printLogHeader();
