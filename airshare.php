@@ -22,6 +22,19 @@ function __construct() {
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_styles') );
   add_action( 'wp_enqueue_scripts', array( $this, 'airshare_includes') );
   add_action( 'plugins_loaded', array( $this, 'airshare_update_db_check') );
+  add_filter( 'page_template', array( $this, 'admin_page_template') );
+}
+
+/*
+ * Use the custom admin page template included with the plugin
+ */
+function admin_page_template( $page_template ) {
+
+  if ( is_page( 'airshare-administration' ) ) {
+    $page_template = plugin_dir_path( __FILE__ ) . 'templates/page-airshare-administration.php'; 
+  }
+
+  return $page_template;
 }
 
 /*
@@ -29,6 +42,7 @@ function __construct() {
  */
 function airshare_install() {
   
+  // Install the back end database
   global $wpdb;
   global $airshare_db_version;
 
@@ -78,6 +92,19 @@ function airshare_install() {
   dbDelta( $uselog_table_sql );
 
   add_option( 'airshare_db_version', $airshare_db_version );
+
+  // Install the Airshare Administration page
+  $admin_page_title = 'Airshare Administration';
+  $admin_page_check = get_page_by_title( $admin_page_title );
+  $admin_page = array(
+                  'post_type' => 'page',
+                  'post_title' => $admin_page_title,
+                  'comment_status' => 'closed' );
+ 
+  if ( !isset( $admin_page_check->ID ) ) {
+    $admin_page_id = wp_insert_post( $admin_page );
+  }
+
 }
 
 /*
